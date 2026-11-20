@@ -78,7 +78,9 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 	case "sqlite", "sqlite3":
 		dialector = sqlite.Open(cfg.DBDatabase)
 	default:
-		dialector = postgres.Open(cfg.DSN())
+		// Simple protocol: tanpa prepared statement tersimpan, sehingga aman
+		// di belakang PgBouncer (transaction pooling) seperti pada Delcom.
+		dialector = postgres.New(postgres.Config{DSN: cfg.DSN(), PreferSimpleProtocol: true})
 	}
 
 	return open(dialector)
