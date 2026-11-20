@@ -16,7 +16,7 @@ import (
 // Error domain artikel.
 var (
 	ErrPostNotFound    = errors.New("post not found")
-	ErrUserNotFound    = errors.New("user not found")
+	ErrForbidden       = errors.New("forbidden: you do not own this post")
 	ErrTitleRequired   = errors.New("title is required")
 	ErrContentRequired = errors.New("content is required")
 )
@@ -131,7 +131,7 @@ func (s *postService) ListPublic(filter PostFilter) ([]PostResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ToPostResponses(posts), nil
+	return ToPublicPostResponses(posts), nil
 }
 
 func (s *postService) GetPublicBySlug(slug string) (*PostResponse, error) {
@@ -142,7 +142,7 @@ func (s *postService) GetPublicBySlug(slug string) (*PostResponse, error) {
 		}
 		return nil, err
 	}
-	res := ToPostResponse(p)
+	res := ToPublicPostResponse(p)
 	return &res, nil
 }
 
@@ -230,7 +230,7 @@ func (s *postService) findOwned(userID, id uint) (*database.Post, error) {
 		return nil, err
 	}
 	if p.UserID != userID {
-		return nil, ErrPostNotFound
+		return nil, ErrForbidden
 	}
 	return p, nil
 }
@@ -344,7 +344,7 @@ func (s *postService) AdminListUsers() ([]AdminUserResponse, error) {
 		out = append(out, AdminUserResponse{
 			ID: u.ID, Name: u.Name, Username: u.Username, Email: u.Email, Role: u.Role,
 			CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
-			TotalPosts: st.Total, TotalPublished: st.Published, TotalDraft: st.Total - st.Published,
+			TotalArticles: st.Total, TotalPosts: st.Total, TotalPublished: st.Published, TotalDraft: st.Total - st.Published,
 		})
 	}
 	return out, nil
@@ -358,14 +358,9 @@ func (s *postService) AdminListPosts() ([]PostResponse, error) {
 	return ToPostResponses(posts), nil
 }
 
+// AdminListUserPosts mengembalikan artikel milik user tertentu; user yang tidak ada
+// menghasilkan daftar kosong (bukan error), sesuai kontrak API.
 func (s *postService) AdminListUserPosts(userID uint) ([]PostResponse, error) {
-	exists, err := s.repo.UserExists(userID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrUserNotFound
-	}
 	posts, err := s.repo.FindByUser(userID)
 	if err != nil {
 		return nil, err

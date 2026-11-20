@@ -7,12 +7,14 @@ import (
 	"app/internal/database"
 )
 
-// RegisterRequest adalah payload pendaftaran akun penulis baru.
+// RegisterRequest adalah payload pendaftaran akun baru.
+// Role opsional: hanya "admin" atau "member" yang diterima, selain itu menjadi "member".
 type RegisterRequest struct {
 	Name     string `json:"name" binding:"omitempty,max=255"`
 	Username string `json:"username" binding:"required,min=3,max=50"`
-	Email    string `json:"email" binding:"omitempty,email,max=255"`
+	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=6,max=72"`
+	Role     string `json:"role"`
 }
 
 // LoginRequest menerima username atau email beserta password.

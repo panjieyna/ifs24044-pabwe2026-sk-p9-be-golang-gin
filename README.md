@@ -82,9 +82,13 @@ Binary membaca `.env` dari direktori kerja saat dijalankan.
 | PATCH | `/api/posts/:id/toggle-publish` | Penulis (pemilik) |
 | GET | `/api/admin/users`, `/api/admin/posts`, `/api/admin/users/:id/posts` | Admin |
 
-Kode status: `201` saat membuat, `400` validasi / ID tidak valid / username-email sudah terdaftar, `401` token tidak ada/tidak valid atau kredensial salah, `403` bukan admin, `404` data tidak ada (termasuk artikel milik penulis lain), `429` rate limit (120 req/menit untuk login & register, 30 req/menit untuk AI generator).
+Kode status: `201` saat membuat, `400` validasi / ID tidak valid / username-email sudah terdaftar, `401` token tidak ada/tidak valid atau kredensial salah, `403` bukan admin atau artikel milik penulis lain, `404` data tidak ada, `429` rate limit (120 req/menit untuk login & register, 30 req/menit untuk AI generator).
 
-Registrasi selalu membuat akun dengan role `member`; akun admin hanya berasal dari seeder.
+Kontrak penting (mengikuti test suite penilaian):
+- Register wajib `username`, `email`, `password` (min. 6). Field `role` opsional: hanya `admin`/`member` yang diterima, selain itu menjadi `member`. Form register di frontend tidak mengirim `role`.
+- Respons artikel publik memuat `author_name` dan tidak memuat `user_id`; respons penulis dan admin memuat `user_id`.
+- Statistik penulis: `total_articles`, `total_selesai` (terbit), `belum_selesai` (draf), beserta alias `total`/`published`/`draft`.
+- Admin: `total_articles` per pengguna; `GET /api/admin/users/:id/posts` untuk pengguna yang tidak ada mengembalikan daftar kosong.
 
 ## Struktur
 

@@ -42,9 +42,10 @@ type AuthorResponse struct {
 }
 
 // PostResponse adalah representasi artikel pada respons API.
+// user_id disembunyikan pada endpoint publik (lihat ToPublicPostResponse).
 type PostResponse struct {
 	ID             uint            `json:"id"`
-	UserID         uint            `json:"user_id"`
+	UserID         uint            `json:"user_id,omitempty"`
 	Title          string          `json:"title"`
 	Slug           string          `json:"slug"`
 	Category       string          `json:"category"`
@@ -55,6 +56,7 @@ type PostResponse struct {
 	Status         string          `json:"status"`
 	PublishedAt    *time.Time      `json:"published_at"`
 	ReadingTime    int             `json:"reading_time"`
+	AuthorName     string          `json:"author_name"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Author         *AuthorResponse `json:"author,omitempty"`
@@ -64,13 +66,14 @@ type PostResponse struct {
 // StatsResponse adalah ringkasan 3 kartu statistik penulis.
 // Alias berbahasa Indonesia disertakan agar kompatibel dengan berbagai klien.
 type StatsResponse struct {
-	Total        int64 `json:"total"`
-	Published    int64 `json:"published"`
-	Draft        int64 `json:"draft"`
-	TotalTerbit  int64 `json:"total_terbit"`
-	TotalDraf    int64 `json:"total_draf"`
-	TotalSelesai int64 `json:"total_selesai"`
-	BelumSelesai int64 `json:"belum_selesai"`
+	TotalArticles int64 `json:"total_articles"`
+	Total         int64 `json:"total"`
+	Published     int64 `json:"published"`
+	Draft         int64 `json:"draft"`
+	TotalTerbit   int64 `json:"total_terbit"`
+	TotalDraf     int64 `json:"total_draf"`
+	TotalSelesai  int64 `json:"total_selesai"`
+	BelumSelesai  int64 `json:"belum_selesai"`
 }
 
 // UserStatsRow adalah hasil agregasi artikel per pengguna.
@@ -89,6 +92,7 @@ type AdminUserResponse struct {
 	Role           string    `json:"role"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+	TotalArticles  int64     `json:"total_articles"`
 	TotalPosts     int64     `json:"total_posts"`
 	TotalPublished int64     `json:"total_published"`
 	TotalDraft     int64     `json:"total_draft"`
@@ -97,7 +101,7 @@ type AdminUserResponse struct {
 func newStats(total, published int64) StatsResponse {
 	draft := total - published
 	return StatsResponse{
-		Total: total, Published: published, Draft: draft,
+		TotalArticles: total, Total: total, Published: published, Draft: draft,
 		TotalTerbit: published, TotalDraf: draft,
 		TotalSelesai: published, BelumSelesai: draft,
 	}
@@ -119,15 +123,35 @@ func ToPostResponse(p *database.Post) PostResponse {
 		author := &AuthorResponse{ID: p.User.ID, Name: p.User.Name, Username: p.User.Username}
 		res.Author = author
 		res.User = author
+		res.AuthorName = p.User.Name
+		if res.AuthorName == "" {
+			res.AuthorName = p.User.Username
+		}
 	}
+	return res
+}
+
+// ToPublicPostResponse seperti ToPostResponse, tetapi tanpa user_id (data internal).
+func ToPublicPostResponse(p *database.Post) PostResponse {
+	res := ToPostResponse(p)
+	res.UserID = 0
 	return res
 }
 
 // ToPostResponses memetakan slice Post menjadi slice PostResponse (tidak pernah nil).
 func ToPostResponses(posts []database.Post) []PostResponse {
+	return mapPosts(posts, ToPostResponse)
+}
+
+// ToPublicPostResponses memetakan slice Post untuk endpoint publik (tanpa user_id).
+func ToPublicPostResponses(posts []database.Post) []PostResponse {
+	return mapPosts(posts, ToPublicPostResponse)
+}
+
+func mapPosts(posts []database.Post, mapper func(*database.Post) PostResponse) []PostResponse {
 	out := make([]PostResponse, 0, len(posts))
 	for i := range posts {
-		out = append(out, ToPostResponse(&posts[i]))
+		out = append(out, mapper(&posts[i]))
 	}
 	return out
 }

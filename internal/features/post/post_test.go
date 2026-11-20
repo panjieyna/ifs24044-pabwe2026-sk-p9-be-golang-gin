@@ -171,6 +171,8 @@ func TestPublicEndpoints(t *testing.T) {
 	code, env = call(t, e.r, http.MethodGet, "/api/public/posts", "", "")
 	assert.Equal(t, http.StatusOK, code)
 	assert.Len(t, asPosts(t, env), 2)
+	assert.NotContains(t, string(env.Data), "user_id")
+	assert.Equal(t, "Penulis", asPosts(t, env)[0].AuthorName)
 
 	_, env = call(t, e.r, http.MethodGet, "/api/public/posts?q=FRAMEWORK&category=Teknologi", "", "")
 	list := asPosts(t, env)
@@ -190,6 +192,7 @@ func TestPublicEndpoints(t *testing.T) {
 	assert.Equal(t, "published", detail.Status)
 	assert.Equal(t, 1, detail.ReadingTime)
 	assert.Equal(t, "Penulis", detail.User.Name)
+	assert.Equal(t, uint(0), detail.UserID)
 
 	code, _ = call(t, e.r, http.MethodGet, "/api/public/posts/"+draft.Slug, "", "")
 	assert.Equal(t, http.StatusNotFound, code)
@@ -228,7 +231,8 @@ func TestAuthorCRUD(t *testing.T) {
 
 	code, env := call(t, e.r, http.MethodGet, "/api/posts", "", e.member)
 	assert.Equal(t, http.StatusOK, code)
-	assert.Len(t, asPosts(t, env), 1)
+	require.Len(t, asPosts(t, env), 1)
+	assert.Equal(t, e.memberID, asPosts(t, env)[0].UserID)
 
 	path := fmt.Sprintf("/api/posts/%d", p.ID)
 	code, env = call(t, e.r, http.MethodGet, path, "", e.member)
@@ -236,7 +240,7 @@ func TestAuthorCRUD(t *testing.T) {
 	assert.Equal(t, p.ID, asPost(t, env).ID)
 
 	code, _ = call(t, e.r, http.MethodGet, path, "", e.other)
-	assert.Equal(t, http.StatusNotFound, code)
+	assert.Equal(t, http.StatusForbidden, code)
 	code, _ = call(t, e.r, http.MethodGet, "/api/posts/99999", "", e.member)
 	assert.Equal(t, http.StatusNotFound, code)
 	code, _ = call(t, e.r, http.MethodGet, "/api/posts/abc", "", e.member)
@@ -276,7 +280,7 @@ func TestAuthorCRUD(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, code, name)
 	}
 	code, _ = call(t, e.r, http.MethodPut, path, `{"title":"Rebut"}`, e.other)
-	assert.Equal(t, http.StatusNotFound, code)
+	assert.Equal(t, http.StatusForbidden, code)
 	code, _ = call(t, e.r, http.MethodPut, "/api/posts/x", `{}`, e.member)
 	assert.Equal(t, http.StatusBadRequest, code)
 
@@ -289,6 +293,8 @@ func TestAuthorCRUD(t *testing.T) {
 	assert.Equal(t, http.StatusOK, code)
 	assert.Equal(t, "Post moved to draft", env.Message)
 	code, _ = call(t, e.r, http.MethodPatch, path+"/toggle-publish", "", e.other)
+	assert.Equal(t, http.StatusForbidden, code)
+	code, _ = call(t, e.r, http.MethodPatch, "/api/posts/99999/toggle-publish", "", e.member)
 	assert.Equal(t, http.StatusNotFound, code)
 	code, _ = call(t, e.r, http.MethodPatch, "/api/posts/x/toggle-publish", "", e.member)
 	assert.Equal(t, http.StatusBadRequest, code)
@@ -299,11 +305,11 @@ func TestAuthorCRUD(t *testing.T) {
 	assert.Equal(t, http.StatusOK, code)
 	var st StatsResponse
 	require.NoError(t, json.Unmarshal(env.Data, &st))
-	assert.Equal(t, StatsResponse{Total: 2, Published: 1, Draft: 1, TotalTerbit: 1, TotalDraf: 1, TotalSelesai: 1, BelumSelesai: 1}, st)
+	assert.Equal(t, StatsResponse{TotalArticles: 2, Total: 2, Published: 1, Draft: 1, TotalTerbit: 1, TotalDraf: 1, TotalSelesai: 1, BelumSelesai: 1}, st)
 
 	// Hapus.
 	code, _ = call(t, e.r, http.MethodDelete, path, "", e.other)
-	assert.Equal(t, http.StatusNotFound, code)
+	assert.Equal(t, http.StatusForbidden, code)
 	code, env = call(t, e.r, http.MethodDelete, path, "", e.member)
 	assert.Equal(t, http.StatusOK, code)
 	assert.Nil(t, env.Data)
@@ -334,20 +340,25 @@ func TestAdminEndpoints(t *testing.T) {
 	require.Len(t, users, 3)
 	assert.Equal(t, "penulis", users[0].Username)
 	assert.Equal(t, int64(2), users[0].TotalPosts)
+	assert.Equal(t, int64(2), users[0].TotalArticles)
 	assert.Equal(t, int64(1), users[0].TotalPublished)
 	assert.Equal(t, int64(1), users[0].TotalDraft)
 	assert.Equal(t, int64(0), users[2].TotalPosts)
 
 	code, env = call(t, e.r, http.MethodGet, "/api/admin/posts", "", e.admin)
 	assert.Equal(t, http.StatusOK, code)
-	assert.Len(t, asPosts(t, env), 3)
+	require.Len(t, asPosts(t, env), 3)
+	for _, p := range asPosts(t, env) {
+		assert.NotZero(t, p.UserID)
+	}
 
 	code, env = call(t, e.r, http.MethodGet, fmt.Sprintf("/api/admin/users/%d/posts", e.memberID), "", e.admin)
 	assert.Equal(t, http.StatusOK, code)
 	assert.Len(t, asPosts(t, env), 2)
 
-	code, _ = call(t, e.r, http.MethodGet, "/api/admin/users/9999/posts", "", e.admin)
-	assert.Equal(t, http.StatusNotFound, code)
+	code, env = call(t, e.r, http.MethodGet, "/api/admin/users/9999/posts", "", e.admin)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Empty(t, asPosts(t, env))
 	code, _ = call(t, e.r, http.MethodGet, "/api/admin/users/abc/posts", "", e.admin)
 	assert.Equal(t, http.StatusBadRequest, code)
 }
@@ -443,13 +454,6 @@ func (f *faultyRepo) UserStats() ([]UserStatsRow, error) {
 	return f.PostRepository.UserStats()
 }
 
-func (f *faultyRepo) UserExists(id uint) (bool, error) {
-	if e := f.err("UserExists"); e != nil {
-		return false, e
-	}
-	return f.PostRepository.UserExists(id)
-}
-
 func TestServiceAndHandlerErrors(t *testing.T) {
 	e := setup(t)
 	existing := create(t, e, e.member, `{"title":"Ada","content":"isi","is_published":true}`)
@@ -475,7 +479,6 @@ func TestServiceAndHandlerErrors(t *testing.T) {
 		{"FindUsers", req{http.MethodGet, "/api/admin/users", "", e.admin}, 500},
 		{"UserStats", req{http.MethodGet, "/api/admin/users", "", e.admin}, 500},
 		{"FindAll", req{http.MethodGet, "/api/admin/posts", "", e.admin}, 500},
-		{"UserExists", req{http.MethodGet, fmt.Sprintf("/api/admin/users/%d/posts", e.memberID), "", e.admin}, 500},
 		{"FindByUser", req{http.MethodGet, fmt.Sprintf("/api/admin/users/%d/posts", e.memberID), "", e.admin}, 500},
 	}
 	for _, tc := range cases {
@@ -515,4 +518,17 @@ func TestRepositoryCountErrors(t *testing.T) {
 	require.NoError(t, sqlDB.Close())
 	_, _, err = repo.CountByUser(1)
 	assert.Error(t, err)
+}
+
+func TestPostResponseMappers(t *testing.T) {
+	p := &database.Post{UserID: 7, Title: "Tanpa Nama", User: &database.User{Username: "anon"}}
+	assert.Equal(t, "anon", ToPostResponse(p).AuthorName)
+	assert.Equal(t, uint(7), ToPostResponse(p).UserID)
+	assert.Equal(t, uint(0), ToPublicPostResponse(p).UserID)
+
+	p.User.Name = "Anon Sekali"
+	assert.Equal(t, "Anon Sekali", ToPostResponse(p).AuthorName)
+
+	assert.Empty(t, ToPostResponse(&database.Post{}).AuthorName)
+	assert.Empty(t, ToPublicPostResponses(nil))
 }

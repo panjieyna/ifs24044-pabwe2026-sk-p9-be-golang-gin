@@ -28,6 +28,15 @@ var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 // TokenTTL adalah masa berlaku token JWT.
 const TokenTTL = 24 * time.Hour
 
+// NormalizeRole menerima role "admin" atau "member" (tanpa memedulikan huruf besar/kecil);
+// nilai lain atau kosong menjadi "member", sesuai kontrak API.
+func NormalizeRole(role string) string {
+	if strings.EqualFold(strings.TrimSpace(role), "admin") {
+		return "admin"
+	}
+	return "member"
+}
+
 // AuthService mendefinisikan use case autentikasi.
 type AuthService interface {
 	Register(req RegisterRequest) (*AuthResponse, error)
@@ -61,9 +70,6 @@ func (s *authService) Register(req RegisterRequest) (*AuthResponse, error) {
 	}
 
 	email := strings.TrimSpace(req.Email)
-	if email == "" {
-		email = strings.ToLower(username) + "@users.delcom.local"
-	}
 	taken, err = s.repo.ExistsByEmail(email, 0)
 	if err != nil {
 		return nil, err
@@ -82,7 +88,7 @@ func (s *authService) Register(req RegisterRequest) (*AuthResponse, error) {
 		name = username
 	}
 
-	user := &database.User{Name: name, Username: username, Email: email, Password: hashed, Role: "member"}
+	user := &database.User{Name: name, Username: username, Email: email, Password: hashed, Role: NormalizeRole(req.Role)}
 	if err := s.repo.Create(user); err != nil {
 		return nil, err
 	}

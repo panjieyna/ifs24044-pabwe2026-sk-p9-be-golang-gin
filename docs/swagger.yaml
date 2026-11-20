@@ -314,8 +314,16 @@ paths:
           description: ID tidak valid
           schema:
             $ref: "#/definitions/Envelope"
+        "401":
+          description: Token tidak ada / tidak valid
+          schema:
+            $ref: "#/definitions/Envelope"
+        "403":
+          description: Artikel milik penulis lain
+          schema:
+            $ref: "#/definitions/Envelope"
         "404":
-          description: Tidak ditemukan / bukan milik penulis
+          description: Artikel tidak ditemukan
           schema:
             $ref: "#/definitions/Envelope"
     put:
@@ -339,8 +347,16 @@ paths:
           description: Validasi gagal
           schema:
             $ref: "#/definitions/Envelope"
+        "401":
+          description: Token tidak ada / tidak valid
+          schema:
+            $ref: "#/definitions/Envelope"
+        "403":
+          description: Artikel milik penulis lain
+          schema:
+            $ref: "#/definitions/Envelope"
         "404":
-          description: Tidak ditemukan
+          description: Artikel tidak ditemukan
           schema:
             $ref: "#/definitions/Envelope"
     delete:
@@ -354,8 +370,16 @@ paths:
           description: Artikel dihapus
           schema:
             $ref: "#/definitions/Envelope"
+        "401":
+          description: Token tidak ada / tidak valid
+          schema:
+            $ref: "#/definitions/Envelope"
+        "403":
+          description: Artikel milik penulis lain
+          schema:
+            $ref: "#/definitions/Envelope"
         "404":
-          description: Tidak ditemukan
+          description: Artikel tidak ditemukan
           schema:
             $ref: "#/definitions/Envelope"
   /api/posts/{id}/toggle-publish:
@@ -375,8 +399,16 @@ paths:
           description: Status publikasi diubah
           schema:
             $ref: "#/definitions/PostEnvelope"
+        "401":
+          description: Token tidak ada / tidak valid
+          schema:
+            $ref: "#/definitions/Envelope"
+        "403":
+          description: Artikel milik penulis lain
+          schema:
+            $ref: "#/definitions/Envelope"
         "404":
-          description: Tidak ditemukan
+          description: Artikel tidak ditemukan
           schema:
             $ref: "#/definitions/Envelope"
   /api/admin/users:
@@ -446,10 +478,7 @@ paths:
           description: Bukan admin
           schema:
             $ref: "#/definitions/Envelope"
-        "404":
-          description: Pengguna tidak ditemukan
-          schema:
-            $ref: "#/definitions/Envelope"
+      description: Pengguna yang tidak ada menghasilkan daftar kosong.
 definitions:
   Envelope:
     type: object
@@ -466,6 +495,7 @@ definitions:
     type: object
     required:
       - username
+      - email
       - password
     properties:
       name:
@@ -480,6 +510,13 @@ definitions:
       password:
         type: string
         example: rahasia123
+      role:
+        type: string
+        enum:
+          - admin
+          - member
+        description: Opsional. Selain "admin"/"member" otomatis menjadi "member".
+        example: member
   LoginRequest:
     type: object
     required:
@@ -563,6 +600,7 @@ definitions:
         type: integer
       user_id:
         type: integer
+        description: ID pemilik artikel. Tidak disertakan pada endpoint publik.
       title:
         type: string
       slug:
@@ -599,6 +637,10 @@ definitions:
         $ref: "#/definitions/Author"
       user:
         $ref: "#/definitions/Author"
+      author_name:
+        type: string
+        description: Nama tampilan penulis (username bila nama kosong)
+        example: Administrator
   PostEnvelope:
     allOf:
       - $ref: "#/definitions/Envelope"
@@ -654,6 +696,9 @@ definitions:
   Stats:
     type: object
     properties:
+      total_articles:
+        type: integer
+        description: Jumlah seluruh artikel
       total:
         type: integer
       published:
@@ -693,6 +738,9 @@ definitions:
         type: integer
       total_draft:
         type: integer
+      total_articles:
+        type: integer
+        description: Jumlah seluruh artikel pengguna
   GeneratePostRequest:
     type: object
     required:

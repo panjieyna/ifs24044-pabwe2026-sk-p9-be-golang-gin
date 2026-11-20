@@ -95,11 +95,17 @@ func TestRegisterLoginProfileFlow(t *testing.T) {
 	assert.Equal(t, "Budi", reg.User.Name)
 	assert.Equal(t, "member", reg.User.Role)
 
-	code, env = call(t, r, http.MethodPost, "/register", `{"username":"siti","password":"rahasia1"}`, "")
+	code, env = call(t, r, http.MethodPost, "/register", `{"username":"siti","email":"siti@example.com","password":"rahasia1","role":"Admin"}`, "")
 	require.Equal(t, http.StatusCreated, code)
 	siti := authData(t, env)
 	assert.Equal(t, "siti", siti.User.Name)
-	assert.Equal(t, "siti@users.delcom.local", siti.User.Email)
+	assert.Equal(t, "siti@example.com", siti.User.Email)
+	assert.Equal(t, "admin", siti.User.Role)
+
+	code, env = call(t, r, http.MethodPost, "/register", `{"username":"joko","email":"joko@example.com","password":"rahasia1","role":"superadmin"}`, "")
+	require.Equal(t, http.StatusCreated, code)
+	assert.Equal(t, "member", authData(t, env).User.Role)
+	assert.NotContains(t, strings.ToLower(string(env.Data)), "password")
 
 	for _, body := range []string{
 		`{"username":"budi","password":"rahasia1"}`,
@@ -144,7 +150,7 @@ func TestRegisterLoginProfileFlow(t *testing.T) {
 	require.NoError(t, json.Unmarshal(env.Data, &profile))
 	assert.Equal(t, "budi", profile.Name)
 
-	code, _ = call(t, r, http.MethodPut, "/profile", `{"email":"siti@users.delcom.local"}`, reg.Token)
+	code, _ = call(t, r, http.MethodPut, "/profile", `{"email":"siti@example.com"}`, reg.Token)
 	assert.Equal(t, http.StatusBadRequest, code)
 	code, _ = call(t, r, http.MethodPut, "/profile", `{"email":"bukan-email"}`, reg.Token)
 	assert.Equal(t, http.StatusBadRequest, code)
@@ -166,11 +172,12 @@ func TestRegisterValidation(t *testing.T) {
 
 	cases := map[string]string{
 		"invalid json":     `{`,
-		"missing password": `{"username":"x1x"}`,
-		"short password":   `{"username":"xyz","password":"123"}`,
+		"missing password": `{"username":"x1x","email":"x1x@example.com"}`,
+		"missing email":    `{"username":"x2x","password":"rahasia1"}`,
+		"short password":   `{"username":"xyz","email":"xyz@example.com","password":"123"}`,
 		"invalid email":    `{"username":"xyz","email":"nope","password":"rahasia1"}`,
-		"invalid username": `{"username":"bad name!","password":"rahasia1"}`,
-		"taken username":   `{"username":"ANDI","password":"rahasia1"}`,
+		"invalid username": `{"username":"bad name!","email":"bad@example.com","password":"rahasia1"}`,
+		"taken username":   `{"username":"ANDI","email":"andi.lain@example.com","password":"rahasia1"}`,
 		"taken email":      `{"username":"andi2","email":"Andi@example.com","password":"rahasia1"}`,
 	}
 	for name, body := range cases {
@@ -252,7 +259,7 @@ func TestServiceErrorPaths(t *testing.T) {
 		u := seededUser(t, base)
 		return NewAuthService(&faultyRepo{UserRepository: base, failOn: failOn}, secret), u
 	}
-	reg := RegisterRequest{Username: "baru", Password: "rahasia1"}
+	reg := RegisterRequest{Username: "baru", Email: "baru@example.com", Password: "rahasia1"}
 	newEmail := "lain@example.com"
 	newPass := "rahasia2"
 
@@ -269,7 +276,7 @@ func TestServiceErrorPaths(t *testing.T) {
 	assert.ErrorIs(t, err, errBoom)
 
 	svc, _ = newSvc(t, "")
-	_, err = svc.Register(RegisterRequest{Username: "panjang", Password: strings.Repeat("p", 80)})
+	_, err = svc.Register(RegisterRequest{Username: "panjang", Email: "panjang@example.com", Password: strings.Repeat("p", 80)})
 	assert.Error(t, err)
 
 	svc, _ = newSvc(t, "find")
@@ -297,7 +304,7 @@ func TestServiceErrorPaths(t *testing.T) {
 func TestHandlerInternalError(t *testing.T) {
 	base := NewUserRepository(newDB(t))
 	r := newRouter(NewAuthService(&faultyRepo{UserRepository: base, failOn: "existsUsername"}, secret))
-	code, env := call(t, r, http.MethodPost, "/register", `{"username":"budi","password":"rahasia1"}`, "")
+	code, env := call(t, r, http.MethodPost, "/register", `{"username":"budi","email":"budi@example.com","password":"rahasia1"}`, "")
 	assert.Equal(t, http.StatusInternalServerError, code)
 	assert.Equal(t, "error", env.Status)
 	assert.Equal(t, "Internal server error", env.Message)

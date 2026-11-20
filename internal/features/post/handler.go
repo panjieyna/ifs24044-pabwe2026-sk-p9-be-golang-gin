@@ -24,8 +24,10 @@ func NewPostHandler(service PostService) *PostHandler {
 
 func writeError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, ErrPostNotFound), errors.Is(err, ErrUserNotFound):
+	case errors.Is(err, ErrPostNotFound):
 		response.Fail(c, http.StatusNotFound, err.Error())
+	case errors.Is(err, ErrForbidden):
+		response.Fail(c, http.StatusForbidden, err.Error())
 	case errors.Is(err, ErrTitleRequired), errors.Is(err, ErrContentRequired):
 		response.Fail(c, http.StatusBadRequest, err.Error())
 	default:

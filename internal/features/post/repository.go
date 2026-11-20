@@ -29,7 +29,6 @@ type PostRepository interface {
 	CountByUser(userID uint) (total int64, published int64, err error)
 	FindUsers() ([]database.User, error)
 	UserStats() ([]UserStatsRow, error)
-	UserExists(id uint) (bool, error)
 }
 
 type postRepository struct {
@@ -127,10 +126,4 @@ func (r *postRepository) UserStats() ([]UserStatsRow, error) {
 		Group("user_id").
 		Scan(&rows).Error
 	return rows, err
-}
-
-func (r *postRepository) UserExists(id uint) (bool, error) {
-	var count int64
-	err := r.db.Model(&database.User{}).Where("id = ?", id).Count(&count).Error
-	return count > 0, err
 }
