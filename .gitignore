@@ -1,0 +1,48 @@
+# Environment & secrets (tetap simpan .env.example)
+.env
+.env.*
+!.env.example
+
+# Biner hasil build — WAJIB diawali "/" agar tidak mengabaikan folder internal/server/ di CI/CD
+/server
+/server.exe
+/main
+/app
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Database lokal SQLite
+*.db
+*.db-journal
+
+# Artefak test & coverage
+cov
+cov.*
+coverage
+coverage.*
+*.out
+*.test
+*.prof
+
+# Cache CI / pemindai
+.scannerwork/
+.trivy-cache/
+trivy-results.sarif
+latest-app.zip
+
+# Dependencies
+vendor/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

@@ -1,0 +1,4 @@
+# Normalisasi line ending agar build & test di runner Linux (Jenkins) konsisten
+* text=auto eol=lf
+*.png binary
+*.ico binary
